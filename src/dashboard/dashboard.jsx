@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react';
 import Header from './header';
 import Sidebar from './sidebar';
-import AuthContext from './auth/AuthContext';
+import AuthContext from '../auth/AuthContext';
 import { FaBars } from 'react-icons/fa';
 import './Dashboard.css';
 

@@ -1,9 +1,9 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Logo from '../assets/logo';
-import AuthContext from '../context/AuthContext';
+import Logo from '../assets/titan-logo.png';
+import AuthContext from '../auth/AuthContext';
 import { FaUserCircle } from 'react-icons/fa';
-import './Header.css';
+import './header.css';
 
 const Header = () => {
   const { currentUser, logout } = useContext(AuthContext);

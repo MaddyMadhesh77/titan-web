@@ -1,8 +1,8 @@
 import React, { useContext } from 'react';
 import { NavLink } from 'react-router-dom';
 import { FaFileUpload, FaFileAlt, FaHome } from 'react-icons/fa';
-import AuthContext from '../context/AuthContext';
-import './Sidebar.css';
+import AuthContext from '../auth/AuthContext';
+import './sidebar.css';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { currentUser } = useContext(AuthContext);
