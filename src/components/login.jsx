@@ -14,12 +14,11 @@ const LoginPage = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate login process
     setTimeout(() => {
       setIsLoading(false);
       console.log('Login attempted with:', { email, password });
       alert('Login functionality would be implemented here!');
+      navigate('/dashboard');
     }, 2000);
   };
 
