@@ -52,7 +52,7 @@ const Signup = () => {
 
   return (
     <div style={{
-        marginTop: '-120px',
+        marginTop: '-180px',
         position: "relative",
         width: "100%",
         minHeight: "100vh",
