@@ -15,7 +15,7 @@ html, body {
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #a8dadc 0%, #457b9d 50%, #1d3557 100%);
+  background: linear-gradient(135deg, #9dd2d3 0%, #457b9d 50%, #1d3557 100%);
   height: 100vh;
   width: 100vw;
   color: #333;
@@ -273,7 +273,7 @@ body {
   font-size: 24px;
   font-weight: 600;
   color: white;
-  margin-bottom: 24px;
+  margin-bottom: 50px;
 }
 
 /* Dashboard Content */
@@ -664,6 +664,11 @@ body {
     padding: 8px 0;
     flex-direction: row;
     justify-content: center;
+  }
+
+  .Application-name {
+    display: none;
+    margin-bottom: -10px;
   }
   
   .sidebar-nav {

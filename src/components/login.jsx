@@ -56,7 +56,7 @@ const LoginPage = () => {
       {/* Login Section */}
       <div className="login-section">
         <div className="login-header">
-          <h2 className="login-title">Welcome Back</h2>
+          <h2 className="login-title">Welcome!</h2>
           <p className="login-subtitle">Please sign in to your account</p>
         </div>
 

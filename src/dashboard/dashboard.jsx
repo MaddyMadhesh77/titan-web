@@ -19,9 +19,20 @@ const Dashboard = () => {
     navigate('/login');
   };
 
+  const handleInputFocus = (e) => {
+    e.target.parentElement.style.transform = 'scale(1.02)';
+  };
+
+  const handleInputBlur = (e) => {
+    e.target.parentElement.style.transform = 'scale(1)';
+  };
+
   const toggleProfileDropdown = () => {
     setShowProfileDropdown(!showProfileDropdown);
   };
+
+  const [applicationName, setapplicationName] = useState('');
+  const [description, setDescription] = useState('');
 
   const renderContent = () => {
     switch (activeSection) {
@@ -29,6 +40,56 @@ const Dashboard = () => {
         return (
           <div className="content-section">
             <h2>Upload Report</h2>
+            <p style={{
+              marginTop: '10px',
+              marginBottom: '15px',
+              fontWeight: 'bold',
+              fontSize: '1.2rem',
+              color: '#FFF',
+            }}>Application Name:</p>
+            <div className='Application-name' style={{ marginBottom: '30px', position: 'relative' }}>
+              <input
+                type='text'
+                id="applicationName"
+                value={applicationName}
+                onChange={(e) => setapplicationName(e.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
+                required
+                className="form-input"
+                placeholder=" " // NOTE: single space is intentional
+              />
+              <label htmlFor="applicationName" className="form-label">Application Name</label>
+            </div>
+            <p style={{
+              marginBottom: '15px',
+              fontWeight: 'bold',
+              fontSize: '1.2rem',
+              color: '#FFF',
+            }}>Description:</p>
+            <div className='Description-Name' style={{ marginBottom: '30px', position: 'relative' }}>
+              <input
+                type='text'
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
+                required
+                className="form-input"
+                placeholder=" "
+              />
+              <label htmlFor="description" className="form-label">Description</label>
+            </div>
+
+            <p
+              style={{
+                marginBottom: '10px',
+                fontWeight: 'bold',
+                fontSize: '1.2rem',
+                color: '#FFF',
+              }}
+            >Doucument Upload:</p>
             <div className="upload-area">
               <div className="upload-box">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
