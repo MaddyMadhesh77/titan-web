@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import Titan from '../assets/titan-logo.png';
 import './login.css';
+import Signup from './signup';
+import { useNavigate } from 'react-router-dom';
 
 const LoginPage = () => {
+
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,10 +40,7 @@ const LoginPage = () => {
     <div className="login-container">
       {/* Company Logo at Top */}
       <div className="company-logo">
-        <img src={Titan} alt="Titan" height={70} width={70} style={{
-            marginLeft: '10px',
-            marginTop: '50px',
-        }} />
+        <img src={Titan} alt="Titan" className="titan-logo-img" />
         <div className="logo-icon">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
             <defs>
@@ -50,10 +51,7 @@ const LoginPage = () => {
             </defs>
           </svg>
         </div>
-        <h1 className="company-name" style={{
-            marginLeft: '-50px',
-            marginTop: '50px',
-        }}>Titan</h1>
+        <h1 className="company-name">Titan</h1>
       </div>
 
       {/* Login Section */}
@@ -122,7 +120,15 @@ const LoginPage = () => {
 
         {/* Footer */}
         <div className="login-footer">
-          <p>Don't have an account? <a href="#" className="signup-link">Sign up here</a></p>
+          <p>
+            Don't have an account?{' '}
+            <span
+              onClick={() => navigate('/signup')}
+              className="signup-link" 
+            >
+              Sign up here
+            </span>
+          </p>
         </div>
       </div>
 

@@ -8,7 +8,7 @@ import './UploadReport.css';
 
 const applications = [
   { id: 1, name: "Loan Application" },
-  { id: 2, name: "Insurance Claim" },
+  { id: 2, name: "Insurance Claim" }, 
   { id: 3, name: "Tax Filing" },
   { id: 4, name: "Employment Verification" },
   { id: 5, name: "Housing Application" }

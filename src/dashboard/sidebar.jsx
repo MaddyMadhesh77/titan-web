@@ -4,7 +4,7 @@ import { FaFileUpload, FaFileAlt, FaHome } from 'react-icons/fa';
 import AuthContext from '../auth/AuthContext';
 import './sidebar.css';
 
-const Sidebar = ({ isOpen, toggleSidebar }) => {
+const Sidebar = ({ isOpen, }) => {
   const { currentUser } = useContext(AuthContext);
 
   return (

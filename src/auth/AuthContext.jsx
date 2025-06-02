@@ -28,8 +28,7 @@ const MOCK_USERS = [
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // Check if user is already logged in
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -43,7 +42,6 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Mock authentication (in a real app, this would call an API)
   const login = (username, password) => {
     return new Promise((resolve, reject) => {
       // Simulate API call delay
@@ -54,7 +52,7 @@ export const AuthProvider = ({ children }) => {
         
         if (user) {
           // Never store password in localStorage
-          const { password, ...userWithoutPassword } = user;
+          const {_, ...userWithoutPassword } = user;
           localStorage.setItem('user', JSON.stringify(userWithoutPassword));
           setCurrentUser(userWithoutPassword);
           toast.success('Login successful!');
