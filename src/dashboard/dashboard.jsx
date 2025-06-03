@@ -4,14 +4,17 @@ import './dashboard.css';
 import { useLocation } from 'react-router-dom';
 
 const Dashboard = () => {
+
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [files, setFiles] = useState(null);
   const [status, setStatus] = useState('idle');
   const [applicationName, setApplicationName] = useState('');
+  const [description, setDescription] = useState('');
 
-  const location = useLocation();
   const userName = location.state?.userName
 
   function handleFileChange(event){
@@ -62,8 +65,6 @@ const Dashboard = () => {
     setShowProfileDropdown(!showProfileDropdown);
   };
 
-  const [description, setDescription] = useState('');
-
   const renderContent = () => {
     switch (activeSection) {
       case 'upload':
@@ -73,7 +74,7 @@ const Dashboard = () => {
             
             <div style={{ marginBottom: '2rem' }}>
               <p style={{
-                marginBottom: '0.5rem',
+                marginBottom: '0.9rem',
                 fontWeight: 'bold',
                 fontSize: '1.2rem',
                 color: '#FFF',
@@ -96,7 +97,7 @@ const Dashboard = () => {
 
             <div style={{ marginBottom: '2rem' }}>
               <p style={{
-                marginBottom: '0.5rem',
+                marginBottom: '0.9rem',
                 fontWeight: 'bold',
                 fontSize: '1.2rem',
                 color: '#FFF',
