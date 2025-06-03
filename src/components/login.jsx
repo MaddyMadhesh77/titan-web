@@ -1,24 +1,23 @@
 import React, { useState } from 'react';
 import Titan from '../assets/titan-logo.png';
 import './login.css';
-import Signup from './signup';
 import { useNavigate } from 'react-router-dom';
 
 const LoginPage = () => {
 
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      console.log('Login attempted with:', { email, password });
-      alert('Login functionality would be implemented here!');
-      navigate('/dashboard');
+      console.log('Login attempted with:', { userName, password });
+      navigate('/dashboard', { state: { userName } });
     }, 2000);
   };
 
@@ -65,17 +64,17 @@ const LoginPage = () => {
           <div className="input-group">
             <div className="input-wrapper">
               <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="userName"
+                id="userName"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
                 required
                 className="form-input"
                 placeholder=" "
               />
-              <label htmlFor="email" className="form-label">Email Address</label>
+              <label htmlFor="userName" className="form-label">User Name</label>
             </div>
           </div>
 

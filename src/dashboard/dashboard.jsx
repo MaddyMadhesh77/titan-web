@@ -1,21 +1,52 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './dashboard.css';
+import { useLocation } from 'react-router-dom';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [files, setFiles] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [applicationName, setApplicationName] = useState('');
 
-  // Mock user data - replace with actual user data from your auth context
-  const user = {
-    name: 'John Doe',
-    email: 'john.doe@example.com',
+  const location = useLocation();
+  const userName = location.state?.userName
+
+  function handleFileChange(event){
+    if (event.target.files && event.target.files.length > 0) {
+      setFiles(event.target.files[0]);
+    }
+  }
+
+  const triggerFileInput = () => {
+    document.getElementById('fileInput').click();
+  };
+
+
+  async function handleFileUpload() {
+    if (!files) return;
+    setStatus('uploading');
+
+    const formData = new FormData();
+    formData.append('file', files);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setStatus('success');
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  let user = {
+    name: userName,
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face&auto=format'
   };
 
   const handleLogout = () => {
-    // Add your logout logic here
+    alert('Logged out!');
     navigate('/login');
   };
 
@@ -31,7 +62,6 @@ const Dashboard = () => {
     setShowProfileDropdown(!showProfileDropdown);
   };
 
-  const [applicationName, setapplicationName] = useState('');
   const [description, setDescription] = useState('');
 
   const renderContent = () => {
@@ -39,66 +69,160 @@ const Dashboard = () => {
       case 'upload':
         return (
           <div className="content-section">
-            <h2>Upload Report</h2>
-            <p style={{
-              marginTop: '10px',
-              marginBottom: '15px',
-              fontWeight: 'bold',
-              fontSize: '1.2rem',
-              color: '#FFF',
-            }}>Application Name:</p>
-            <div className='Application-name' style={{ marginBottom: '30px', position: 'relative' }}>
-              <input
-                type='text'
-                id="applicationName"
-                value={applicationName}
-                onChange={(e) => setapplicationName(e.target.value)}
-                onFocus={handleInputFocus}
-                onBlur={handleInputBlur}
-                required
-                className="form-input"
-                placeholder=" " // NOTE: single space is intentional
-              />
-              <label htmlFor="applicationName" className="form-label">Application Name</label>
-            </div>
-            <p style={{
-              marginBottom: '15px',
-              fontWeight: 'bold',
-              fontSize: '1.2rem',
-              color: '#FFF',
-            }}>Description:</p>
-            <div className='Description-Name' style={{ marginBottom: '30px', position: 'relative' }}>
-              <input
-                type='text'
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onFocus={handleInputFocus}
-                onBlur={handleInputBlur}
-                required
-                className="form-input"
-                placeholder=" "
-              />
-              <label htmlFor="description" className="form-label">Description</label>
-            </div>
-
-            <p
-              style={{
-                marginBottom: '10px',
+            <h2 style={{ color: '#fff', marginBottom: '2rem', fontSize: '2rem' }}>Upload Report</h2>
+            
+            <div style={{ marginBottom: '2rem' }}>
+              <p style={{
+                marginBottom: '0.5rem',
                 fontWeight: 'bold',
                 fontSize: '1.2rem',
                 color: '#FFF',
-              }}
-            >Doucument Upload:</p>
-            <div className="upload-area">
-              <div className="upload-box">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              }}>Application Name:</p>
+              <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+                <input
+                  type='text'
+                  id="applicationName"
+                  value={applicationName}
+                  onChange={(e) => setApplicationName(e.target.value)}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                  required
+                  className="form-input"
+                  placeholder=" " 
+                />
+                <label htmlFor="applicationName" className="form-label">Application Name</label>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '2rem' }}>
+              <p style={{
+                marginBottom: '0.5rem',
+                fontWeight: 'bold',
+                fontSize: '1.2rem',
+                color: '#FFF',
+              }}>Description:</p>
+              <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                  required
+                  rows={4}
+                  className="form-input"
+                  placeholder=" "
+              />
+              <label htmlFor="description" className="form-label">Description</label>
+              </div>
+            </div>
+
+            <div>
+              <p style={{
+                marginBottom: '1rem',
+                fontWeight: 'bold',
+                fontSize: '1.2rem',
+                color: '#FFF',
+              }}>Document Upload:</p>
+              
+              <div style={{
+                border: '2px dashed #4a5568',
+                borderRadius: '12px',
+                padding: '3rem 2rem',
+                textAlign: 'center',
+                background: 'rgba(255,255,255,0.05)',
+                transition: 'all 0.3s ease'
+              }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#a0aec0', marginBottom: '1rem' }}>
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="7,10 12,15 17,10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                <p>Drag and drop your report here or click to browse</p>
-                <button className="upload-btn">Choose File</button>
+                
+                <p style={{ color: '#a0aec0', marginBottom: '1rem', fontSize: '1.1rem' }}>
+                  Drag and drop your report here or click to browse
+                </p>
+                
+                {files && (
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.1)', 
+                    padding: '1rem', 
+                    borderRadius: '8px', 
+                    marginBottom: '1rem',
+                    color: '#fff'
+                  }}>
+                    <p><strong>File name:</strong> {files.name}</p>
+                    <p><strong>File size:</strong> {Math.round(files.size / 1024)} KB</p>
+                    <p><strong>File type:</strong> {files.type}</p>
+                  </div>
+                )}
+                
+                <button 
+                  onClick={triggerFileInput}
+                  style={{
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                >
+                  Choose File
+                </button>
+                
+                {files && status !== 'uploading' && (
+                  <button 
+                    onClick={handleFileUpload}
+                    style={{
+                      background: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      transition: 'transform 0.2s ease',
+                      marginLeft: '1rem'
+                    }}
+                    onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                    onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                  >
+                    Upload
+                  </button>
+                )}
+                
+                {status === 'uploading' && (
+                  <p style={{ color: '#fbbf24', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                    Uploading...
+                  </p>
+                )}
+                
+                {status === 'success' && (
+                  <p style={{ color: '#48bb78', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                    File uploaded successfully!
+                  </p>
+                )}
+                
+                {status === 'error' && (
+                  <p style={{ color: '#f56565', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                    Error uploading file!
+                  </p>
+                )}
+                
+                <input
+                  type="file"
+                  id="fileInput"
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
+                  accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
+                />
               </div>
             </div>
           </div>
@@ -160,7 +284,9 @@ const Dashboard = () => {
             </div>
           </div>
         );
+        
     }
+    
   };
 
   return (
@@ -270,6 +396,7 @@ const Dashboard = () => {
       </div>
     </div>
   );
-};
 
+};
+  
 export default Dashboard;
