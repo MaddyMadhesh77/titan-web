@@ -7,7 +7,7 @@ const Signup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: '',
-    lastName: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -104,9 +104,9 @@ const Signup = () => {
             <div className="input-wrapper">
               <input
                 type="text"
-                id="lastName"
-                name="lastName"
-                value={formData.lastName}
+                id="username"
+                name="username"
+                value={formData.username}
                 onChange={handleInputChange}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
@@ -114,7 +114,7 @@ const Signup = () => {
                 className="form-input"
                 placeholder=" "
               />
-              <label htmlFor="lastName" className="form-label">Last Name</label>
+              <label htmlFor="username" className="form-label">Username</label>
             </div>
           </div>
 
