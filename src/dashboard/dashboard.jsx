@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './dashboard.css';
 import { useLocation } from 'react-router-dom';
@@ -15,7 +15,21 @@ const Dashboard = () => {
   const [applicationName, setApplicationName] = useState('');
   const [description, setDescription] = useState('');
 
-  const userName = location.state?.userName
+  // Fix: Get username from multiple sources with fallback
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+
+  useEffect(() => {
+    // Try to get user data from navigation state first, then from sessionStorage
+    const usernameFromState = location.state?.username;
+    const emailFromState = location.state?.email;
+    
+    const usernameFromSession = sessionStorage.getItem('username');
+    const emailFromSession = sessionStorage.getItem('userEmail');
+
+    setUserName(usernameFromState || usernameFromSession || 'User');
+    setUserEmail(emailFromState || emailFromSession || '');
+  }, [location.state]);
 
   function handleFileChange(event){
     if (event.target.files && event.target.files.length > 0) {
@@ -26,7 +40,6 @@ const Dashboard = () => {
   const triggerFileInput = () => {
     document.getElementById('fileInput').click();
   };
-
 
   async function handleFileUpload() {
     if (!files) return;
@@ -45,10 +58,13 @@ const Dashboard = () => {
 
   let user = {
     name: userName,
+    email: userEmail,
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face&auto=format'
   };
 
   const handleLogout = () => {
+    // Clear session storage on logout
+    sessionStorage.clear();
     alert('Logged out!');
     navigate('/login');
   };
