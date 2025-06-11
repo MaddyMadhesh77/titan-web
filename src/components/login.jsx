@@ -12,6 +12,7 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,32 +30,29 @@ const LoginPage = () => {
       // Sign in with Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       console.log('Login successful:', userCredential.user.uid);
-      
-      // Extract username from email (part before @) or use displayName if available
-      const username = userCredential.user.displayName || 
-                     userCredential.user.email.split('@')[0] || 
-                     'User';
-      
-      // Store user info in sessionStorage for persistence across page refreshes
+
+      // Extract username from email or displayName
+      const username = userCredential.user.displayName ||
+                      userCredential.user.email.split('@')[0] ||
+                      'User';
+
+      // Store user info in sessionStorage
       sessionStorage.setItem('username', username);
       sessionStorage.setItem('userEmail', userCredential.user.email);
       sessionStorage.setItem('userId', userCredential.user.uid);
-      
-      console.log('Navigating to dashboard with username:', username);
-      
-      // Navigate to dashboard with state AND store in sessionStorage for backup
-      navigate('/dashboard', { 
-        state: { 
-          username: username,
+
+      // Navigate to dashboard
+      navigate('/dashboard', {
+        state: {
+          username,
           email: userCredential.user.email,
           userId: userCredential.user.uid
-        } 
+        }
       });
-      
+
     } catch (error) {
       console.error('Login error:', error);
-      
-      // Handle specific Firebase errors
+
       switch (error.code) {
         case 'auth/user-not-found':
           setError('No account found with this email address');
@@ -108,6 +106,10 @@ const LoginPage = () => {
     }
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   const handleInputFocus = (e) => {
     e.target.parentElement.style.transform = 'scale(1.02)';
   };
@@ -135,7 +137,7 @@ const LoginPage = () => {
       {/* Login Section */}
       <div className="login-section">
         <div className="login-header">
-          <h2 className="login-title">Welcome Back!</h2>
+          <h2 className="login-title">Welcome!!!</h2>
           <p className="login-subtitle">Please sign in to your account</p>
         </div>
 
@@ -192,20 +194,42 @@ const LoginPage = () => {
           </div>
 
           <div className="input-group">
-            <div className="input-wrapper">
+            <div className="input-wrapper password-wrapper">
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 id="password"
                 value={password}
                 onChange={handleInputChange(setPassword)}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
                 required
-                className="form-input"
+                className="form-input password-input"
                 placeholder=" "
                 autoComplete="current-password"
               />
               <label htmlFor="password" className="form-label">Password</label>
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={togglePasswordVisibility}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  // Eye slash icon (hide password)
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                    <line x1="2" y1="2" x2="22" y2="22"></line>
+                  </svg>
+                ) : (
+                  // Eye icon (show password)
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
 

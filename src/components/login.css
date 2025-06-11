@@ -410,3 +410,66 @@ body {
     font-size: 28px;
   }
 }
+
+/* Password input wrapper with toggle button */
+.password-wrapper {
+  position: relative;
+}
+
+.password-input {
+  padding-right: 50px; /* Make space for the toggle button */
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  z-index: 10;
+}
+
+.password-toggle-btn:hover {
+  color: #374151;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.password-toggle-btn:focus {
+  outline: none;
+  color: #2563eb;
+  background-color: rgba(37, 99, 235, 0.1);
+}
+
+.password-toggle-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* Ensure the toggle button stays visible even when input is focused */
+.input-wrapper:focus-within .password-toggle-btn {
+  color: #374151;
+}
+
+/* Optional: Add a subtle animation to the icon change */
+.password-toggle-btn svg {
+  transition: opacity 0.1s ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .password-toggle-btn {
+    right: 10px;
+  }
+  
+  .password-input {
+    padding-right: 45px;
+  }
+}
