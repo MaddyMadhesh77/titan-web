@@ -1,5 +1,7 @@
   import React, { useState, useEffect, useMemo } from 'react';
   import { useNavigate, useLocation } from 'react-router-dom';
+  import SockJS from 'sockjs-client';
+  import { Stomp } from '@stomp/stompjs';
   import './dashboard.css';
   import axios from 'axios';
 
@@ -24,6 +26,7 @@
     const [editingReport, setEditingReport] = useState(null);
     const [editForm, setEditForm] = useState({ desc: '', app: '' });
     const [selectedApp, setSelectedApp] = useState(null);
+    const [message, setMessage] = useState('');
 
     // Maximum file size (100MB)
     const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -267,6 +270,32 @@
       if (files.length === 0) return;
       if (!applicationName.trim() || !description.trim()) {
         alert('Please fill in Application Name and Description');
+        return;
+      }
+
+      setStatus('uploading');
+      for (const fileItem of files) {
+        if (fileItem.status === 'pending') {
+          setFiles((prev) =>
+            prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'uploading' } : f))
+          );
+          await uploadSingleFile(fileItem);
+        }
+      }
+
+      setStatus('success');
+      setTimeout(() => {
+        setFiles([]);
+        setApplicationName('');
+        setDescription('');
+        setUploadProgress({});
+        setStatus('idle');
+      }, 6000);
+    };
+
+    const handleMessageUpload = async () => {
+      if (!message.trim()) {
+        alert('Please fill in Message');
         return;
       }
 
@@ -1691,6 +1720,54 @@
                 </div>
               )}
             </div>
+          );
+
+        case 'Broadcasting':
+          return (
+            <>
+              <h2 style={{ color: '#fff', marginBottom: '2rem', fontSize: '2rem' }}>
+                Broadcasting
+              </h2>
+              <h3 style={{ color: '#fff', marginBottom: '2rem', fontSize: '1.5rem' }}>Message:</h3>
+              <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+                  <textarea
+                    id="message"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                    required
+                    rows={10}
+                    className="form-input"
+                    placeholder=" "
+                  />
+                  <label htmlFor="message" className="form-label">Message</label>
+              </div>
+            <button
+                      onClick={handleMessageUpload}
+                      disabled={message.trim() === ''}
+                      style={{
+                        background: message.trim() === ''
+                          ? 'rgba(255,255,255,0.2)'
+                          : 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 24px',
+                        borderRadius: '8px',
+                        cursor: !message.trim() === '' ? 'not-allowed' : 'pointer',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        transition: 'transform 0.2s ease',
+                      }}
+                      onMouseOver={(e) => {
+                        if (!e.target.disabled) e.target.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseOut={(e) => {
+                        if (!e.target.disabled) e.target.style.transform = 'translateY(0)';
+                      }}
+                    >Send Broadcast
+                    </button>
+            </>
           );
         }
         <style jsx>{`
