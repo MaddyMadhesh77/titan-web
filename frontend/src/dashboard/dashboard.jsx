@@ -10,7 +10,7 @@
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [files, setFiles] = useState([]);
     const [status, setStatus] = useState('idle');
-    const [uploadProgress, setUploadProgress] = useState({});
+    const [uploadProgress, setUploadProgress] = useState({}); 
     const [applicationName, setApplicationName] = useState(sessionStorage.getItem('applicationName') || '');
     const [description, setDescription] = useState(sessionStorage.getItem('description') || '');
     const [activeSection, setActiveSection] = useState(sessionStorage.getItem('activeSection') || 'dashboard');
@@ -23,6 +23,7 @@
     const [searchStatus, setSearchStatus] = useState('idle');
     const [editingReport, setEditingReport] = useState(null);
     const [editForm, setEditForm] = useState({ desc: '', app: '' });
+    const [selectedApp, setSelectedApp] = useState(null);
 
     // Maximum file size (100MB)
     const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -47,11 +48,19 @@
       setUserName(usernameFromState || usernameFromSession || 'User');
       setUserEmail(emailFromState || emailFromSession || '');
 
+      const finalUserName = usernameFromState || usernameFromSession || 'User';
+
       // Fetch reports whenever activeSection changes to reports OR dashboard
       if (activeSection === 'reports' || activeSection === 'dashboard') {
-        fetchReports();
+        fetchReports(finalUserName);
       }
     }, [location.state, activeSection]);
+
+    useEffect(() => {
+      if ((activeSection === 'reports' || activeSection === 'dashboard') && userName) {
+        fetchReports(userName);
+      }
+    }, [activeSection, userName]);
 
     useEffect(() => {
       // Fetch reports when component first loads
@@ -94,48 +103,35 @@
       await fetchReports();
     };
 
-    // Updated fetchReports function with better field normalization
-    const fetchReports = async () => {
+    const fetchReports = async (userName) => {
       try {
+        console.log(userName);
         setStatus('loading');
         const response = await axios.get('http://localhost:8080/api/reports');
         console.log('Raw reports data:', response.data);
 
         const normalizedReports = response.data.map(report => {
-          console.log('Individual report:', report);
-          
-          // Normalize the date field - check multiple possible date field names
-          let createdAt = report.createdAt || 
-                        report.created_at || 
-                        report.uploadedAt || 
-                        report.uploaded_at || 
-                        report.dateCreated || 
-                        report.date_created ||
-                        report.timestamp ||
-                        report.created ||
-                        new Date().toISOString(); // fallback to current date
-          
-          return {
-            ...report,
-            app: report.application || report.app || report.applicationName || report.app_name || 'Unknown',
-            desc: report.description || report.desc || 'No description',
-            fileTitle: report.title || report.filename || report.fileName || report.file_name || report.file || report.name || 'No file',
-            fileSize: report.fileSize || report.file_size || report.size || report.length || 0,
-            id: report.id || report._id || report.reportId,
-            createdAt: createdAt // Ensure we always have a createdAt field
+        const fileSize = report.fileSize || report.file_size || report.size || report.length || 0;
+        return {
+          ...report,
+          app: report.application || report.app || report.applicationName || report.app_name || 'Unknown',
+          desc: report.description || report.desc || 'No description',
+          fileTitle: report.title || report.filename || report.fileName || report.file_name || report.file || report.name || 'No file',
+          fileSize: fileSize, // Standardized field
+          id: report.id || report._id || report.reportId,
+          createdAt: report.createdAt || report.created_at || report.uploadedAt || report.uploaded_at || report.dateCreated || report.date_created || report.timestamp || report.created || new Date().toISOString(),
+          createdBy: userName || 'Unknown'
+        };
+      });
+              console.log('Normalized reports:', normalizedReports);
+              setReports(normalizedReports);
+              setStatus('idle');
+            } catch (error) {
+              console.error('Error fetching reports:', error);
+              setStatus('error');
+              alert('Failed to fetch reports. Please try again later.');
+            }
           };
-        });
-
-        console.log('Normalized reports:', normalizedReports);
-        setReports(normalizedReports);
-        setStatus('idle');
-      } catch (error) {
-        console.error('Error fetching reports:', error);
-        setStatus('error');
-        alert('Failed to fetch reports. Please try again later.');
-      }
-    };
-
 
     // Filter applications based on search query
     const filteredAppNames = useMemo(() => {
@@ -218,16 +214,22 @@
     };
 
     // Upload single file
+    // Upload single file - Updated to include createdBy
     const uploadSingleFile = async (fileItem) => {
       if (!applicationName.trim() || !description.trim()) {
         alert('Please fill in Application Name and Description');
         return false;
       }
 
+      // Ensure we have a valid user for createdBy
+      const createdByUser = userName || userEmail || 'Anonymous';
+      console.log('Created By User:', createdByUser);
+      
       const formData = new FormData();
       formData.append('file', fileItem.file);
       formData.append('app', applicationName);
       formData.append('desc', description);
+      formData.append('createdBy', userName);
 
       try {
         const response = await axios.post('http://localhost:8080/api/reports/upload', formData, {
@@ -245,21 +247,22 @@
           prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'success' } : f))
         );
 
-        console.log('File uploaded successfully:', response.data);
+        console.log('File uploaded successfully by:', createdByUser, response.data);
         if (activeSection === 'reports') {
-          fetchReports();
+          fetchReports(createdByUser);
         }
         return true;
       } catch (error) {
         setFiles((prev) =>
           prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'error' } : f))
         );
-        console.error('Error uploading file:', error.response?.data || error.message);
+        const errorMessage = error.response?.data?.message || error.message || 'Upload failed';
+        alert(`Failed to upload ${fileItem.file.name}: ${errorMessage}`);
         return false;
       }
     };
 
-    // Upload all files
+     // Upload all files
     const handleFileUpload = async () => {
       if (files.length === 0) return;
       if (!applicationName.trim() || !description.trim()) {
@@ -284,11 +287,29 @@
         setDescription('');
         setUploadProgress({});
         setStatus('idle');
-      }, 1000000);
+      }, 6000);
     };
 
+    const handleViewReport = async (id) => {
+      try {
+        const response = await axios.get(`http://localhost:8080/api/reports/view/${id}`, {
+          responseType: 'blob',
+        });
+
+        const blob = new Blob([response.data], { type: response.headers['content-type'] });
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank'); // Open in new tab
+      } catch (error) {
+        console.error('Error viewing report:', error);
+        alert('Failed to view report. Please try again.');
+      }
+    };
+
+
+
+
     // Download report
-    const handleViewReport = async (id, filename) => {
+    const handleDownloadReport = async (id, filename) => {
       try {
         const response = await axios.get(`http://localhost:8080/api/reports/download/${id}`, {
           responseType: 'blob',
@@ -673,6 +694,17 @@
                           </th>
                           <th style={{ 
                             padding: '1rem', 
+                            textAlign: 'left', 
+                            color: '#e2e8f0',
+                            fontWeight: '600',
+                            fontSize: '0.875rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}>
+                            Created By
+                          </th>
+                          <th style={{ 
+                            padding: '1rem', 
                             textAlign: 'center', 
                             color: '#e2e8f0',
                             fontWeight: '600',
@@ -721,25 +753,28 @@
                               <td style={{ padding: '1rem', color: '#a0aec0', fontSize: '0.875rem' }}>
                                 {formatDate(report.createdAt)}
                               </td>
+                              <td style={{ padding: '1rem', color: '#e2e8f0', fontSize: '0.875rem' }}>
+                                {report.createdBy || 'Unknown'}
+                              </td>
                               <td style={{ padding: '1rem', textAlign: 'center' }}>
                                 <button
-                                  onClick={() => handleViewReport(report.id, report.fileTitle)}
-                                  style={{
-                                    background: 'linear-gradient(135deg, #38b2ac 0%, #319795 100%)',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '6px 12px',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500',
-                                    transition: 'transform 0.2s ease'
-                                  }}
-                                  onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                                >
-                                  Download
-                                </button>
+                                        onClick={() => handleViewReport(report.id, report.fileTitle)}
+                                        style={{
+                                          background: 'linear-gradient(135deg,rgb(160, 178, 56) 0%,rgb(131, 151, 49) 100%)',
+                                          color: 'white',
+                                          border: 'none',
+                                          padding: '6px 12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontSize: '0.875rem',
+                                          fontWeight: '500',
+                                          transition: 'transform 0.2s ease',
+                                        }}
+                                        onMouseOver={(e) => (e.target.style.transform = 'translateY(-1px)')}
+                                        onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                                      >
+                                        View
+                                      </button>
                               </td>
                             </tr>
                           );
@@ -997,6 +1032,7 @@
                     }}
                     onMouseOver={(e) => (e.target.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                    aria-label="Choose files to upload"
                   >
                     Choose Files
                   </button>
@@ -1053,506 +1089,605 @@
         case 'reports':
           return (
             <div className="content-section">
-              <h2 style={{ color: '#fff', marginBottom: '2rem', fontSize: '2rem' }}>
-                View Reports
-              </h2>
-              
-              {/* Search Bar */}
-              <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setSearchStatus('searching');
-                    }}
-                    placeholder="Search applications..."
+              {/* Conditionally render based on whether an application is selected */}
+              {selectedApp ? (
+                <div>
+                  {/* Header with Application Name on the left, Back Button on the right */}
+                  <div
                     style={{
-                      width: '100%',
-                      padding: '12px 16px 12px 40px',
-                      borderRadius: '8px',
-                      border: '1px solid #4a5568',
-                      background: 'rgba(255,255,255,0.05)',
-                      color: '#fff',
-                      fontSize: '1rem',
-                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '2rem',
                     }}
-                    onFocus={(e) => (e.target.style.borderColor = '#667eea')}
-                    onBlur={(e) => (e.target.style.borderColor = '#4a5568')}
-                  />
-                  <svg
-                    style={{
-                      position: 'absolute',
-                      left: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: '20px',
-                      height: '20px',
-                      color: '#a0aec0'
-                    }}
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
                   >
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                  </svg>
-                </div>
-                
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    fetchReports();
-                  }}
-                  style={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    transition: 'transform 0.2s ease',
-                  }}
-                  onMouseOver={(e) => (e.target.style.transform = 'translateY(-2px)')}
-                  onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
-                >
-                  Clear Search
-                </button>
-              </div>
+                    <h2
+                      style={{
+                        color: '#fff',
+                        margin: 0,
+                        fontSize: '2rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '1rem',
+                        marginLeft: '0.5rem',
+                      }}
+                    >
+                      {selectedApp}
+                    </h2>
 
-              {/* Loading States */}
-              {status === 'loading' ? (
-                <div style={{ textAlign: 'center', padding: '2rem' }}>
-                  <div style={{ 
-                    display: 'inline-block',
-                    width: '40px',
-                    height: '40px',
-                    border: '4px solid #4a5568',
-                    borderTop: '4px solid #667eea',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                    marginBottom: '1rem'
-                  }}></div>
-                  <p style={{ color: '#a0aec0', fontSize: '1.1rem' }}>Loading reports...</p>
-                </div>
-              ) : searchStatus === 'searching' ? (
-                <p style={{ color: '#a0aec0', fontSize: '1.1rem' }}>Searching...</p>
-              ) : filteredAppNames.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem' }}>
-                  <svg
-                    style={{ width: '64px', height: '64px', color: '#4a5568', marginBottom: '1rem' }}
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
+                    <button
+                      onClick={() => {
+                        setSelectedApp(null);
+                        setSearchQuery('');
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '10px 20px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        transition: 'transform 0.2s ease',
+                        marginRight: '1rem',
+                      }}
+                      onMouseOver={(e) => (e.target.style.transform = 'translateY(-2px)')}
+                      onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                    >
+                      Back to Applications
+                    </button>
+                  </div>
+
+
+                  {/* Reports Table for Selected Application */}
+                  <div
+                    style={{
+                      background: 'rgba(0,0,0,0.3)',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      border: '1px solid #4a5568',
+                      animation: 'fadeIn 0.3s ease-in-out',
+                    }}
                   >
-                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                  </svg>
-                  <p style={{ color: '#a0aec0', fontSize: '1.1rem' }}>
-                    {searchQuery ? 'No applications match your search.' : 'No reports available.'}
-                  </p>
+                    {getReportsForApp(selectedApp).length > 0 ? (
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: 'rgba(0,0,0,0.4)' }}>
+                            <th
+                              style={{
+                                padding: '1rem',
+                                textAlign: 'left',
+                                color: '#e2e8f0',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                              }}
+                            >
+                              Application
+                            </th>
+                            <th
+                              style={{
+                                padding: '1rem',
+                                textAlign: 'left',
+                                color: '#e2e8f0',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                              }}
+                            >
+                              Description
+                            </th>
+                            <th
+                              style={{
+                                padding: '1rem',
+                                textAlign: 'left',
+                                color: '#e2e8f0',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                              }}
+                            >
+                              Size
+                            </th>
+                            <th
+                              style={{
+                                padding: '1rem',
+                                textAlign: 'left',
+                                color: '#e2e8f0',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                              }}
+                            >
+                              File
+                            </th>
+                            <th
+                              style={{
+                                padding: '1rem',
+                                textAlign: 'left',
+                                color: '#e2e8f0',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                              }}
+                            >
+                              Uploaded At
+                            </th>
+                            <th
+                              style={{
+                                padding: '1rem',
+                                textAlign: 'left',
+                                color: '#e2e8f0',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                              }}
+                            >
+                              Created By
+                            </th>
+                            <th
+                              style={{
+                                padding: '1rem',
+                                textAlign: 'center',
+                                color: '#e2e8f0',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                              }}
+                            >
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getReportsForApp(selectedApp).map((report, index) => {
+                            const fileName = report.filename || report.fileName || report.file_name || report.file || '';
+                            const fileExtension = fileName.split('.').pop()?.toLowerCase() || 'default';
+                            const iconSrc = fileTypeIcons[fileExtension] || fileTypeIcons.default;
+                            const isEditing = editingReport === report.id;
+
+                            return (
+                              <tr
+                                key={report.id}
+                                style={{
+                                  borderTop: index > 0 ? '1px solid rgba(74, 85, 104, 0.5)' : 'none',
+                                  transition: 'background 0.2s ease',
+                                }}
+                                onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                                onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+                              >
+                                {/* Application Column */}
+                                <td style={{ padding: '1rem', color: '#e2e8f0' }}>
+                                  {isEditing ? (
+                                    <input
+                                      type="text"
+                                      value={editForm.app}
+                                      onChange={(e) => setEditForm({ ...editForm, app: e.target.value })}
+                                      placeholder="Application Name"
+                                      style={{
+                                        width: '100%',
+                                        padding: '8px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #4a5568',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        color: '#fff',
+                                        fontSize: '0.875rem',
+                                      }}
+                                    />
+                                  ) : (
+                                    report.app || 'No application'
+                                  )}
+                                </td>
+
+                                {/* Description Column */}
+                                <td style={{ padding: '1rem', color: '#e2e8f0' }}>
+                                  {isEditing ? (
+                                    <input
+                                      type="text"
+                                      value={editForm.desc}
+                                      onChange={(e) => setEditForm({ ...editForm, desc: e.target.value })}
+                                      placeholder="Description"
+                                      style={{
+                                        width: '100%',
+                                        padding: '8px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #4a5568',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        color: '#fff',
+                                        fontSize: '0.875rem',
+                                      }}
+                                    />
+                                  ) : (
+                                    report.desc || 'No description'
+                                  )}
+                                </td>
+
+                                {/* Size Column */}
+                                <td style={{ padding: '1rem', color: '#a0aec0', fontSize: '0.875rem' }}>
+                                  {report.fileSize && report.fileSize > 0
+                                    ? formatFileSize(report.fileSize)
+                                    : report.file_size && report.file_size > 0
+                                    ? formatFileSize(report.file_size)
+                                    : report.size && report.size > 0
+                                    ? formatFileSize(report.size)
+                                    : 'Unknown size'}
+                                </td>
+
+                                {/* File Column */}
+                                <td style={{ padding: '1rem', color: '#e2e8f0' }}>
+                                  {isEditing ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                      <input
+                                        type="file"
+                                        onChange={(e) => setEditForm({ ...editForm, file: e.target.files[0] })}
+                                        accept="*/*"
+                                        style={{
+                                          width: '100%',
+                                          padding: '8px',
+                                          borderRadius: '4px',
+                                          border: '1px solid #4a5568',
+                                          background: 'rgba(255,255,255,0.05)',
+                                          color: '#fff',
+                                          fontSize: '0.875rem',
+                                        }}
+                                      />
+                                      {editForm.file && (
+                                        <span style={{ fontSize: '0.75rem', color: '#a0aec0' }}>
+                                          New file: {editForm.file.name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <img
+                                        src={iconSrc}
+                                        alt={`${fileExtension} icon`}
+                                        style={{ width: '20px', height: '20px' }}
+                                      />
+                                      <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>
+                                        {report.fileTitle || 'No file'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td style={{ padding: '1rem', color: '#a0aec0', fontSize: '0.875rem' }}>
+                                  {report.createdAt ? new Date(report.createdAt).toLocaleString() : 'N/A'}
+                                </td>
+                                <td style={{ padding: '1rem', color: '#e2e8f0', fontSize: '0.875rem' }}>
+                                  {report.createdBy || 'Unknown'}
+                                </td>
+
+                                {/* Actions Column */}
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                  {isEditing ? (
+                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                      <button
+                                        onClick={() => handleUpdateReport(report.id)}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
+                                          color: 'white',
+                                          border: 'none',
+                                          padding: '6px 12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontSize: '0.875rem',
+                                          fontWeight: '500',
+                                          transition: 'transform 0.2s ease',
+                                        }}
+                                        onMouseOver={(e) => (e.target.style.transform = 'translateY(-1px)')}
+                                        onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                                      >
+                                        Update
+                                      </button>
+                                      <button
+                                        onClick={cancelEdit}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)',
+                                          color: 'white',
+                                          border: 'none',
+                                          padding: '6px 12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontSize: '0.875rem',
+                                          fontWeight: '500',
+                                          transition: 'transform 0.2s ease',
+                                        }}
+                                        onMouseOver={(e) => (e.target.style.transform = 'translateY(-1px)')}
+                                        onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                      <button
+                                        onClick={() => handleEditReport(report)}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                          color: 'white',
+                                          border: 'none',
+                                          padding: '6px 12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontSize: '0.875rem',
+                                          fontWeight: '500',
+                                          transition: 'transform 0.2s ease',
+                                        }}
+                                        onMouseOver={(e) => (e.target.style.transform = 'translateY(-1px)')}
+                                        onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                                      >
+                                        Update
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteReport(report.id, report.fileTitle)}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)',
+                                          color: 'white',
+                                          border: 'none',
+                                          padding: '6px 12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontSize: '0.875rem',
+                                          fontWeight: '500',
+                                          transition: 'transform 0.2s ease',
+                                        }}
+                                        onMouseOver={(e) => (e.target.style.transform = 'translateY(-1px)')}
+                                        onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                                      >
+                                        Delete
+                                      </button>
+                                      <button
+                                        onClick={() => handleDownloadReport(report.id, report.fileTitle)}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #38b2ac 0%, #319795 100%)',
+                                          color: 'white',
+                                          border: 'none',
+                                          padding: '6px 12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontSize: '0.875rem',
+                                          fontWeight: '500',
+                                          transition: 'transform 0.2s ease',
+                                        }}
+                                        onMouseOver={(e) => (e.target.style.transform = 'translateY(-1px)')}
+                                        onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                                      >
+                                        Download
+                                      </button>
+                                      <button
+                                        onClick={() => handleViewReport(report.id, report.fileTitle)}
+                                        style={{
+                                          background: 'linear-gradient(135deg,rgb(160, 178, 56) 0%,rgb(131, 151, 49) 100%)',
+                                          color: 'white',
+                                          border: 'none',
+                                          padding: '6px 12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontSize: '0.875rem',
+                                          fontWeight: '500',
+                                          transition: 'transform 0.2s ease',
+                                        }}
+                                        onMouseOver={(e) => (e.target.style.transform = 'translateY(-1px)')}
+                                        onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                                      >
+                                        View
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '3rem' }}>
+                        <svg
+                          style={{ width: '48px', height: '48px', color: '#4a5568', marginBottom: '1rem' }}
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                        <p style={{ color: '#a0aec0', fontSize: '1rem', margin: 0 }}>
+                          No reports found for this application.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
-                /* Applications List */
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  {filteredAppNames.map((appName) => {
-                    const appReports = getReportsForApp(appName);
-                    const isExpanded = expandedApp === appName;
-                    
-                    return (
-                      <div
-                        key={appName}
-                        style={{
-                          background: 'rgba(255,255,255,0.05)',
-                          borderRadius: '12px',
-                          border: '1px solid #4a5568',
-                          overflow: 'hidden',
-                          transition: 'all 0.3s ease'
+                <div>
+                  {/* Original Header and Search Bar */}
+                  <h2 style={{ color: '#fff', marginBottom: '2rem', fontSize: '2rem' }}>
+                    View Reports
+                  </h2>
+
+                  {/* Search Bar */}
+                  <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setSearchStatus('searching');
                         }}
+                        placeholder="Search applications..."
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px 12px 40px',
+                          borderRadius: '8px',
+                          border: '1px solid #4a5568',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '1rem',
+                          transition: 'all 0.3s ease',
+                        }}
+                        onFocus={(e) => (e.target.style.borderColor = '#667eea')}
+                        onBlur={(e) => (e.target.style.borderColor = '#4a5568')}
+                      />
+                      <svg
+                        style={{
+                          position: 'absolute',
+                          left: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '20px',
+                          height: '20px',
+                          color: '#a0aec0',
+                        }}
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        {/* Application Header */}
-                        <div
-                          onClick={() => setExpandedApp(isExpanded ? null : appName)}
-                          style={{
-                            padding: '1.5rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            background: isExpanded ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
-                            transition: 'background 0.3s ease'
-                          }}
-                          onMouseOver={(e) => {
-                            if (!isExpanded) e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                          }}
-                          onMouseOut={(e) => {
-                            if (!isExpanded) e.currentTarget.style.background = 'transparent';
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                      </svg>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        fetchReports();
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 24px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        transition: 'transform 0.2s ease',
+                      }}
+                      onMouseOver={(e) => (e.target.style.transform = 'translateY(-2px)')}
+                      onMouseOut={(e) => (e.target.style.transform = 'translateY(0)')}
+                    >
+                      Clear Search
+                    </button>
+                  </div>
+
+                  {/* Loading States */}
+                  {status === 'loading' ? (
+                    <div style={{ textAlign: 'center', padding: '2rem' }}>
+                      <div
+                        style={{
+                          display: 'inline-block',
+                          width: '40px',
+                          height: '40px',
+                          border: '4px solid #4a5568',
+                          borderTop: '4px solid #667eea',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite',
+                          marginBottom: '1rem',
+                        }}
+                      ></div>
+                      <p style={{ color: '#a0aec0', fontSize: '1.1rem' }}>Loading reports...</p>
+                    </div>
+                  ) : searchStatus === 'searching' ? (
+                    <p style={{ color: '#a0aec0', fontSize: '1.1rem' }}>Searching...</p>
+                  ) : filteredAppNames.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem' }}>
+                      <svg
+                        style={{ width: '64px', height: '64px', color: '#4a5568', marginBottom: '1rem' }}
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                      </svg>
+                      <p style={{ color: '#a0aec0', fontSize: '1.1rem' }}>
+                        {searchQuery ? 'No applications match your search.' : 'No reports available.'}
+                      </p>
+                    </div>
+                  ) : (
+                    /* Applications List as Cards */
+                    <div style={{ display: 'grid', gap: '1.5rem' }}>
+                      {filteredAppNames.map((appName) => {
+                        const appReports = getReportsForApp(appName);
+
+                        return (
+                          <div key={appName}>
+                            {/* Application Card */}
                             <div
+                              onClick={() => setSelectedApp(appName)}
                               style={{
-                                width: '12px',
-                                height: '12px',
-                                borderRadius: '50%',
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                                background: 'rgba(255,255,255,0.05)',
+                                borderRadius: '12px',
+                                border: '1px solid #4a5568',
+                                padding: '1.5rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                transform: 'translateY(0)',
+                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
                               }}
-                            />
-                            <h3 style={{ 
-                              color: '#fff', 
-                              margin: 0, 
-                              fontSize: '1.25rem',
-                              fontWeight: '600'
-                            }}>
-                              {appName}
-                            </h3>
-                            <span style={{
-                              background: 'rgba(102, 126, 234, 0.2)',
-                              color: '#667eea',
-                              padding: '4px 12px',
-                              borderRadius: '20px',
-                              fontSize: '0.875rem',
-                              fontWeight: '500'
-                            }}>
-                              {appReports.length} report{appReports.length !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                          
-                          <svg
-                            style={{
-                              width: '20px',
-                              height: '20px',
-                              color: '#a0aec0',
-                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                              transition: 'transform 0.3s ease'
-                            }}
-                            fill="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
-                          </svg>
-                        </div>
+                              onMouseOver={(e) => {
+                                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseOut={(e) => {
+                                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                  <div
+                                    style={{
+                                      width: '16px',
+                                      height: '16px',
+                                      borderRadius: '50%',
+                                      background: 'linear-gradient(135deg, #a0aec0 0%, #718096 100%)',
+                                    }}
+                                  />
+                                  <h3
+                                    style={{
+                                      color: '#fff',
+                                      margin: 0,
+                                      fontSize: '1.5rem',
+                                      fontWeight: '700',
+                                    }}
+                                  >
+                                    {appName}
+                                  </h3>
+                                  <span
+                                    style={{
+                                      background: 'rgba(102, 126, 234, 0.2)',
+                                      color: '#a0aec0',
+                                      padding: '6px 16px',
+                                      borderRadius: '25px',
+                                      fontSize: '0.875rem',
+                                      fontWeight: '600',
+                                    }}
+                                  >
+                                    {appReports.length} report{appReports.length !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
 
-                        {/* Expanded Reports Table */}
-                        {isExpanded && (
-                          <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                            {appReports.length > 0 ? (
-                              <div style={{ 
-                                background: 'rgba(0,0,0,0.2)',
-                                borderRadius: '8px',
-                                overflow: 'hidden'
-                              }}>
-                                <table style={{ 
-                                  width: '100%', 
-                                  borderCollapse: 'collapse'
-                                }}>
-                                  <thead>
-                                    <tr style={{ background: 'rgba(0,0,0,0.3)' }}>
-                                      <th style={{ 
-                                        padding: '1rem', 
-                                        textAlign: 'left', 
-                                        color: '#e2e8f0',
-                                        fontWeight: '600',
-                                        fontSize: '0.875rem',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.05em'
-                                      }}>
-                                        Application
-                                      </th>
-                                      <th style={{ 
-                                        padding: '1rem', 
-                                        textAlign: 'left', 
-                                        color: '#e2e8f0',
-                                        fontWeight: '600',
-                                        fontSize: '0.875rem',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.05em'
-                                      }}>
-                                        Description
-                                      </th>
-                                      <th style={{ 
-                                        padding: '1rem', 
-                                        textAlign: 'left', 
-                                        color: '#e2e8f0',
-                                        fontWeight: '600',
-                                        fontSize: '0.875rem',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.05em'
-                                      }}>
-                                        Size
-                                      </th>
-                                      <th style={{ 
-                                        padding: '1rem', 
-                                        textAlign: 'left', 
-                                        color: '#e2e8f0',
-                                        fontWeight: '600',
-                                        fontSize: '0.875rem',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.05em'
-                                      }}>
-                                        File
-                                      </th>
-                                      <th style={{ 
-                                        padding: '1rem', 
-                                        textAlign: 'left', 
-                                        color: '#e2e8f0',
-                                        fontWeight: '600',
-                                        fontSize: '0.875rem',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.05em'
-                                      }}>
-                                        Uploaded At
-                                      </th>
-                                      <th style={{ 
-                                        padding: '1rem', 
-                                        textAlign: 'center', 
-                                        color: '#e2e8f0',
-                                        fontWeight: '600',
-                                        fontSize: '0.875rem',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.05em'
-                                      }}>
-                                        Actions
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {appReports.map((report, index) => {
-                                      const fileName = report.filename || report.fileName || report.file_name || report.file || '';
-                                      const fileExtension = fileName.split('.').pop()?.toLowerCase() || 'default';
-                                      const iconSrc = fileTypeIcons[fileExtension] || fileTypeIcons.default;
-                                      const isEditing = editingReport === report.id;
-                                      
-                                      return (
-                                        <tr 
-                                          key={report.id}
-                                          style={{
-                                            borderTop: index > 0 ? '1px solid rgba(74, 85, 104, 0.5)' : 'none',
-                                            transition: 'background 0.2s ease'
-                                          }}
-                                          onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                                          onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                          {/* Application Column */}
-                                          <td style={{ padding: '1rem', color: '#e2e8f0' }}>
-                                            {isEditing ? (
-                                              <input
-                                                type="text"
-                                                value={editForm.app}
-                                                onChange={(e) => setEditForm({...editForm, app: e.target.value})}
-                                                placeholder="Application Name"
-                                                style={{
-                                                  width: '100%',
-                                                  padding: '8px',
-                                                  borderRadius: '4px',
-                                                  border: '1px solid #4a5568',
-                                                  background: 'rgba(255,255,255,0.05)',
-                                                  color: '#fff',
-                                                  fontSize: '0.875rem'
-                                                }}
-                                              />
-                                            ) : (
-                                              report.app || 'No application'
-                                            )}
-                                          </td>
-
-                                          {/* Description Column */}
-                                          <td style={{ padding: '1rem', color: '#e2e8f0' }}>
-                                            {isEditing ? (
-                                              <input
-                                                type="text"
-                                                value={editForm.desc}
-                                                onChange={(e) => setEditForm({...editForm, desc: e.target.value})}
-                                                placeholder="Description"
-                                                style={{
-                                                  width: '100%',
-                                                  padding: '8px',
-                                                  borderRadius: '4px',
-                                                  border: '1px solid #4a5568',
-                                                  background: 'rgba(255,255,255,0.05)',
-                                                  color: '#fff',
-                                                  fontSize: '0.875rem'
-                                                }}
-                                              />
-                                            ) : (
-                                              report.desc || 'No description'
-                                            )}
-                                          </td>
-
-                                          {/* Size Column */}
-                                          <td style={{ padding: '1rem', color: '#a0aec0', fontSize: '0.875rem' }}>
-                                            {report.fileSize && report.fileSize > 0 
-                                              ? formatFileSize(report.fileSize) 
-                                              : (report.file_size && report.file_size > 0 
-                                                  ? formatFileSize(report.file_size)
-                                                  : (report.size && report.size > 0 
-                                                      ? formatFileSize(report.size)
-                                                      : 'Unknown size'
-                                                    )
-                                                )
-                                            }
-                                          </td>
-                                          
-                                          {/* File Column */}
-                                          <td style={{ padding: '1rem', color: '#e2e8f0' }}>
-                                          {isEditing ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                              <input
-                                                type="file"
-                                                onChange={(e) => setEditForm({...editForm, file: e.target.files[0]})}
-                                                accept="*/*"
-                                                style={{
-                                                  width: '100%',
-                                                  padding: '8px',
-                                                  borderRadius: '4px',
-                                                  border: '1px solid #4a5568',
-                                                  background: 'rgba(255,255,255,0.05)',
-                                                  color: '#fff',
-                                                  fontSize: '0.875rem'
-                                                }}
-                                              />
-                                              {editForm.file && (
-                                                <span style={{ fontSize: '0.75rem', color: '#a0aec0' }}>
-                                                  New file: {editForm.file.name}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ) : (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                              <img
-                                                src={iconSrc}
-                                                alt={`${fileExtension} icon`}
-                                                style={{ width: '20px', height: '20px' }}
-                                              />
-                                              <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>
-                                                {report.fileTitle || 'No file'}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </td>
-
-                                        <td style={{ padding: '1rem', color: '#a0aec0', fontSize: '0.875rem' }}>
-                                            {report.createdAt ? new Date(report.createdAt).toLocaleString() : 'N/A'}
-                                          </td>
-
-
-                                          {/* Actions Column */}
-                                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                            {isEditing ? (
-                                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                <button
-                                                  onClick={() => handleUpdateReport(report.id)}
-                                                  style={{
-                                                    background: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.875rem',
-                                                    fontWeight: '500',
-                                                    transition: 'transform 0.2s ease'
-                                                  }}
-                                                  onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                                                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                                                >
-                                                  Update
-                                                </button>
-                                                <button
-                                                  onClick={cancelEdit}
-                                                  style={{
-                                                    background: 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.875rem',
-                                                    fontWeight: '500',
-                                                    transition: 'transform 0.2s ease'
-                                                  }}
-                                                  onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                                                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                                                >
-                                                  Cancel
-                                                </button>
-                                              </div>
-                                            ) : (
-                                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                                <button
-                                                  onClick={() => handleEditReport(report)}
-                                                  style={{
-                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.875rem',
-                                                    fontWeight: '500',
-                                                    transition: 'transform 0.2s ease'
-                                                  }}
-                                                  onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                                                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                                                >
-                                                  Update
-                                                </button>
-                                                <button
-                                                  onClick={() => handleDeleteReport(report.id, report.fileTitle)}
-                                                  style={{
-                                                    background: 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.875rem',
-                                                    fontWeight: '500',
-                                                    transition: 'transform 0.2s ease'
-                                                  }}
-                                                  onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                                                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                                                >
-                                                  Delete
-                                                </button>
-                                                <button
-                                                  onClick={() => handleViewReport(report.id, report.fileTitle)}
-                                                  style={{
-                                                    background: 'linear-gradient(135deg, #38b2ac 0%, #319795 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.875rem',
-                                                    fontWeight: '500',
-                                                    transition: 'transform 0.2s ease'
-                                                  }}
-                                                  onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                                                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                                                >
-                                                  Download
-                                                </button>
-                                              </div>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
+                                <div
+                                  style={{
+                                    color: '#a0aec0',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                  }}
+                                >
+                                  Click to view reports
+                                </div>
                               </div>
-                            ) : (
-                              <div style={{ textAlign: 'center', padding: '2rem' }}>
-                                <p style={{ color: '#a0aec0', fontSize: '1rem' }}>
-                                  No reports found for this application.
-                                </p>
-                              </div>
-                            )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1565,7 +1700,9 @@
         <header className="dashboard-header">
           <div className="header-left">
             <div className="logo-section">
-              <h2>Titan Dashboard</h2>
+              <h2 style={{
+                color: '#FFF',
+              }}>Titan Dashboard</h2>
             </div>
           </div>
           <div className="header-right">
@@ -1638,6 +1775,13 @@
                 </svg>
                 View Reports
               </div>
+              <div className={`nav-item ${activeSection === 'Broadcasting' ? 'active' : ''}`}
+                   onClick={() => setActiveSection('Broadcasting')}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M12,4C16.42,4 20,7.58 20,12C20,16.42 16.42,20 12,20C7.58,20 4,16.42 4,12C4,7.58 7.58,4 12,4M12,6C9.79,6 8,7.79 8,10C8,12.21 9.79,14 12,14C14.21,14 16,12.21 16,10C"/></svg>
+                Broadcasting
+              </div>
             </nav>
             <div className="sidebar-footer">
               <div className="user-info">
@@ -1649,7 +1793,7 @@
               </div>
             </div>
           </aside>
-          <main className="content">{renderContent()}</main>
+        <main className="content">{renderContent()}</main>
         </div>
         <div className="background-animation">
           <div className="modern-shape"></div>
@@ -1657,6 +1801,7 @@
           <div className="modern-shape"></div>
         </div>
       </div>
+      
     );
   };
 

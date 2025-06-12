@@ -1219,3 +1219,36 @@ body {
 .profile-avatar.active .dropdown-arrow {
   transform: rotate(180deg);
 }
+
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #1a202c;
+}
+
+.content-section h2 {
+  color: #fff;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+}
+
+.upload-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: transform 0.2s ease;
+}
+
+.upload-button:hover {
+  transform: translateY(-2px);
+}
+tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  transition: background-color 0.2s ease;
+}

@@ -2,16 +2,14 @@ import React, { useState } from 'react';
 import Titan from '../assets/titan-logo.png';
 import './login.css';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebase/config';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import axios from 'axios';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [resetEmailSent, setResetEmailSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -20,90 +18,80 @@ const LoginPage = () => {
     setError('');
 
     // Basic validation
-    if (!email.trim() || !password.trim()) {
+    if (!emailOrUsername.trim() || !password.trim()) {
       setError('Please fill in all fields');
       setIsLoading(false);
       return;
     }
 
     try {
-      // Sign in with Firebase
-      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
-      console.log('Login successful:', userCredential.user.uid);
-
-      // Extract username from email or displayName
-      const username = userCredential.user.displayName ||
-                      userCredential.user.email.split('@')[0] ||
-                      'User';
-
-      // Store user info in sessionStorage
-      sessionStorage.setItem('username', username);
-      sessionStorage.setItem('userEmail', userCredential.user.email);
-      sessionStorage.setItem('userId', userCredential.user.uid);
-
-      // Navigate to dashboard
-      navigate('/dashboard', {
-        state: {
-          username,
-          email: userCredential.user.email,
-          userId: userCredential.user.uid
+      const response = await axios.post('http://localhost:8080/api/users/login', {
+        emailOrUsername: emailOrUsername.trim(),
+        password: password
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
+
+      if (response.data.success) {
+        console.log('Login successful:', response.data.user);
+
+        const user = response.data.user;
+
+        // Store user info in sessionStorage
+        sessionStorage.setItem('username', user.username);
+        sessionStorage.setItem('userEmail', user.email);
+        sessionStorage.setItem('userId', user.id);
+        sessionStorage.setItem('name', user.name);
+        sessionStorage.setItem('role', user.role);
+
+        // Navigate to dashboard
+        navigate('/dashboard', {
+          state: {
+            username: user.username,
+            email: user.email,
+            userId: user.id,
+            name: user.name,
+            role: user.role
+          }
+        });
+      } else {
+        setError(response.data.message || 'Login failed. Please try again.');
+      }
 
     } catch (error) {
       console.error('Login error:', error);
 
-      switch (error.code) {
-        case 'auth/user-not-found':
-          setError('No account found with this email address');
-          break;
-        case 'auth/wrong-password':
-          setError('Incorrect password');
-          break;
-        case 'auth/invalid-email':
-          setError('Please enter a valid email address');
-          break;
-        case 'auth/invalid-credential':
-          setError('Invalid email or password');
-          break;
-        case 'auth/too-many-requests':
-          setError('Too many failed attempts. Please try again later');
-          break;
-        case 'auth/user-disabled':
-          setError('This account has been disabled');
-          break;
-        default:
+      if (error.response) {
+        // Server responded with error status
+        if (error.response.status === 401) {
+          setError('Invalid email/username or password');
+        } else if (error.response.data?.message) {
+          setError(error.response.data.message);
+        } else {
           setError('Login failed. Please try again.');
+        }
+      } else if (error.request) {
+        // Network error
+        setError('Unable to connect to server. Please check your connection.');
+      } else {
+        setError('Login failed. Please try again.');
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
+  const handleForgotPassword = () => {
+    // For now, just show an alert. You can implement password reset later
+    if (!emailOrUsername.trim()) {
       setError('Please enter your email address first');
       return;
     }
-
-    try {
-      await sendPasswordResetEmail(auth, email.trim());
-      setResetEmailSent(true);
-      setError('');
-      alert('Password reset email sent! Check your inbox.');
-    } catch (error) {
-      console.error('Password reset error:', error);
-      switch (error.code) {
-        case 'auth/user-not-found':
-          setError('No account found with this email address');
-          break;
-        case 'auth/invalid-email':
-          setError('Please enter a valid email address');
-          break;
-        default:
-          setError('Failed to send reset email. Please try again.');
-      }
-    }
+    
+    // You can implement password reset functionality later
+    alert('Password reset functionality will be implemented soon. Please contact support for now.');
   };
 
   const togglePasswordVisibility = () => {
@@ -122,7 +110,6 @@ const LoginPage = () => {
     setter(e.target.value);
     // Clear error when user starts typing
     if (error) setError('');
-    if (resetEmailSent) setResetEmailSent(false);
   };
 
   return (
@@ -130,8 +117,6 @@ const LoginPage = () => {
       {/* Company Logo at Top */}
       <div className="company-logo">
         <img src={Titan} alt="Titan" className="titan-logo-img" />
-        
-        <h1 className="company-name">Titan</h1>
       </div>
 
       {/* Login Section */}
@@ -140,22 +125,6 @@ const LoginPage = () => {
           <h2 className="login-title">Welcome!!!</h2>
           <p className="login-subtitle">Please sign in to your account</p>
         </div>
-
-        {/* Success Message */}
-        {resetEmailSent && (
-          <div style={{
-            backgroundColor: '#d1fae5',
-            color: '#065f46',
-            padding: '10px',
-            borderRadius: '6px',
-            marginBottom: '20px',
-            fontSize: '14px',
-            textAlign: 'center',
-            border: '1px solid #a7f3d0'
-          }}>
-            Password reset email sent! Check your inbox.
-          </div>
-        )}
 
         {/* Error Message */}
         {error && (
@@ -178,18 +147,18 @@ const LoginPage = () => {
           <div className="input-group">
             <div className="input-wrapper">
               <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={handleInputChange(setEmail)}
+                type="text"
+                id="emailOrUsername"
+                value={emailOrUsername}
+                onChange={handleInputChange(setEmailOrUsername)}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
                 required
                 className="form-input"
                 placeholder=" "
-                autoComplete="email"
+                autoComplete="username"
               />
-              <label htmlFor="email" className="form-label">Email Address</label>
+              <label htmlFor="emailOrUsername" className="form-label">Email or Username</label>
             </div>
           </div>
 

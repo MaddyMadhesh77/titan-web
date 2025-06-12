@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../firebase/config';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
 import './login.css';
+import axios from 'axios';
 
 const Signup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastname: '',
+    name: '',
+    role: '',
     username: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -42,7 +40,7 @@ const Signup = () => {
       return false;
     }
     
-    if (!formData.firstName.trim() || !formData.lastname.trim()) {
+    if (!formData.name.trim() || !formData.role.trim()) {
       setError('Please fill in all required fields');
       return false;
     }
@@ -55,6 +53,7 @@ const Signup = () => {
     return true;
   };
 
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -66,45 +65,29 @@ const Signup = () => {
     }
 
     try {
-      // Create user with Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        formData.email, 
-        formData.password
-      );
-      
-      // Save additional user data to Firestore
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        firstName: formData.firstName.trim(),
-        lastname: formData.lastname.trim(),
-        username: formData.username.trim(),
-        email: formData.email.toLowerCase().trim(),
-        createdAt: new Date().toISOString(),
-        uid: userCredential.user.uid,
-        password: formData.password.trim()
+      const response = await axios.post('http://localhost:8080/api/users/signup', formData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
-      alert('Account created successfully! Please login.');
-      navigate('/login');
+      if (response.data.success) {
+        // Signup successful
+        console.log('Account created successfully:', response.data.user);
+        // You can store user data in localStorage or context
+        // localStorage.setItem('user', JSON.stringify(response.data.user));
+        // Navigate to login or dashboard
+        navigate('/login');
+      } else {
+        setError(response.data.message || 'Signup failed. Please try again.');
+      }
     } catch (error) {
       console.error('Signup error:', error);
       
-      // Handle specific Firebase errors
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          setError('An account with this email already exists');
-          break;
-        case 'auth/invalid-email':
-          setError('Please enter a valid email address');
-          break;
-        case 'auth/weak-password':
-          setError('Password is too weak. Please use at least 6 characters');
-          break;
-        case 'auth/operation-not-allowed':
-          setError('Email/password accounts are not enabled');
-          break;
-        default:
-          setError('Signup failed. Please try again.');
+      if (error.response?.data?.message) {
+        setError(error.response.data.message);
+      } else {
+        setError('Signup failed. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -165,9 +148,9 @@ const Signup = () => {
             <div className="input-wrapper">
               <input
                 type="text"
-                id="firstName"
-                name="firstName"
-                value={formData.firstName || ''}
+                id="name"
+                name="name"
+                value={formData.name || ''}
                 onChange={handleInputChange}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
@@ -176,7 +159,7 @@ const Signup = () => {
                 placeholder=" "
                 autoComplete="given-name"
               />
-              <label htmlFor="firstName" className="form-label">First Name</label>
+              <label htmlFor="name" className="form-label">Name</label>
             </div>
           </div>
 
@@ -184,18 +167,18 @@ const Signup = () => {
             <div className="input-wrapper">
               <input
                 type="text"
-                id="lastname"
-                name="lastname"
-                value={formData.lastname || ''}
+                id="role"
+                name="role"
+                value={formData.role || ''}
                 onChange={handleInputChange}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
                 required
                 className="form-input"
                 placeholder=" "
-                autoComplete="family-name"
+                autoComplete="role"
               />
-              <label htmlFor="lastname" className="form-label">Last Name</label>
+              <label htmlFor="role" className="form-label">Role</label>
             </div>
           </div>
 
