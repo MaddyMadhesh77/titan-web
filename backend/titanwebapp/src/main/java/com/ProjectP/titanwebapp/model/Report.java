@@ -5,8 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.stereotype.Component;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -28,6 +28,10 @@ public class Report {
     private String description;
     private byte[] data;
     private Long fileSize;
+
+    @CreatedBy
+    @Column(name = "created_by")
+    private String createdBy;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
