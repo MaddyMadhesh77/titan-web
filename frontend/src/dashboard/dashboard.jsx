@@ -1,11 +1,10 @@
   import React, { useState, useEffect, useMemo } from 'react';
   import { useNavigate, useLocation } from 'react-router-dom';
-  import SockJS from 'sockjs-client';
-  import { Stomp } from '@stomp/stompjs';
   import './dashboard.css';
   import axios from 'axios';
 
   const Dashboard = () => {
+
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -26,7 +25,10 @@
     const [editingReport, setEditingReport] = useState(null);
     const [editForm, setEditForm] = useState({ desc: '', app: '' });
     const [selectedApp, setSelectedApp] = useState(null);
-    const [message, setMessage] = useState('');
+    const [messages, setMessages] = useState([]);
+    const [messageInput, setMessageInput] = useState('');
+    const [userRole,setUserRole] = useState('Guest');
+    const [loading, setLoading] = useState(false);
 
     // Maximum file size (100MB)
     const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -45,17 +47,25 @@
     useEffect(() => {
       const usernameFromState = location.state?.username;
       const emailFromState = location.state?.email;
+      const roleFromState = location.state?.role;
       const usernameFromSession = sessionStorage.getItem('username');
       const emailFromSession = sessionStorage.getItem('userEmail');
+      const roleFromSession = sessionStorage.getItem('userrole');
+
 
       setUserName(usernameFromState || usernameFromSession || 'User');
       setUserEmail(emailFromState || emailFromSession || '');
+      setUserRole(roleFromState || roleFromSession || 'Guest');
 
       const finalUserName = usernameFromState || usernameFromSession || 'User';
+      const finalUserRole = roleFromState || roleFromSession || 'Guest';
 
       // Fetch reports whenever activeSection changes to reports OR dashboard
       if (activeSection === 'reports' || activeSection === 'dashboard') {
         fetchReports(finalUserName);
+      }
+      if(activeSection === 'Broadcasting'){
+        fetchReports(finalUserRole);
       }
     }, [location.state, activeSection]);
 
@@ -64,6 +74,12 @@
         fetchReports(userName);
       }
     }, [activeSection, userName]);
+
+    useEffect(() => {
+      if(activeSection === 'Broadcasting'){
+        fetchReports(userRole);
+      }
+    }, [location.state, activeSection]);
 
     useEffect(() => {
       // Fetch reports when component first loads
@@ -89,6 +105,8 @@
         sessionStorage.removeItem('expandedApp');
       }
     }, [expandedApp]);
+
+    
 
     const getFrequentReports = () => {
       return reports
@@ -270,32 +288,6 @@
       if (files.length === 0) return;
       if (!applicationName.trim() || !description.trim()) {
         alert('Please fill in Application Name and Description');
-        return;
-      }
-
-      setStatus('uploading');
-      for (const fileItem of files) {
-        if (fileItem.status === 'pending') {
-          setFiles((prev) =>
-            prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'uploading' } : f))
-          );
-          await uploadSingleFile(fileItem);
-        }
-      }
-
-      setStatus('success');
-      setTimeout(() => {
-        setFiles([]);
-        setApplicationName('');
-        setDescription('');
-        setUploadProgress({});
-        setStatus('idle');
-      }, 6000);
-    };
-
-    const handleMessageUpload = async () => {
-      if (!message.trim()) {
-        alert('Please fill in Message');
         return;
       }
 
@@ -556,6 +548,77 @@
       );
       
       await uploadSingleFile(fileItem);
+    };
+
+    // Function to handle broadcast
+  const handleBroadcast = async () => {
+    if (userRole !== 'Admin') {
+      alert('Only Admins can send broadcast messages.');
+      return;
+    }
+    if (!messageInput.trim()) {
+      alert('Message cannot be empty.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/messages/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: messageInput,
+          senderUsername: userName || 'Admin'
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to send broadcast');
+      await response.json();
+      setMessageInput(''); // Clear input
+      fetchMessages(); // Refresh messages
+      alert('Message sent successfully!');
+    } catch (error) {
+      console.error('Error sending broadcast:', error);
+      alert('Failed to send broadcast. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to fetch messages
+  const fetchMessages = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/messages/all');
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      const data = await response.json();
+      setMessages(data); // Store array of messages
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      alert('Failed to fetch messages. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+    // Fetch messages on component mount
+    useEffect(() => {
+      fetchMessages();
+    }, []);
+
+    const formatTimestamp = (timestamp) => {
+      try {
+        return new Date(timestamp).toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      } catch (error) {
+        return 'Invalid Date';
+      }
     };
 
     const renderContent = () => {
@@ -1725,48 +1788,154 @@
         case 'Broadcasting':
           return (
             <>
+              <div className="content-section">
               <h2 style={{ color: '#fff', marginBottom: '2rem', fontSize: '2rem' }}>
                 Broadcasting
               </h2>
-              <h3 style={{ color: '#fff', marginBottom: '2rem', fontSize: '1.5rem' }}>Message:</h3>
-              <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
-                  <textarea
-                    id="message"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                    required
-                    rows={10}
-                    className="form-input"
-                    placeholder=" "
-                  />
-                  <label htmlFor="message" className="form-label">Message</label>
+              {userRole !== 'Admin' ? (
+                <p style={{ color: '#f56565', fontSize: '1.1rem' }}>
+                  Only Admins can send broadcast messages.
+                </p>
+              ) : (
+                <>
+                  <h3 style={{ color: '#fff', marginBottom: '1rem', fontSize: '1.5rem' }}>
+                    Message:
+                  </h3>
+                  <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+                    <textarea
+                      id="message"
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
+                      required
+                      rows={10}
+                      className="form-input"
+                      placeholder=" "
+                      disabled={loading}
+                    />
+                    <label htmlFor="message" className="form-label">Message</label>
+                  </div>
+                  <button
+                    onClick={handleBroadcast}
+                    disabled={!messageInput.trim() || loading}
+                    style={{
+                      background: !messageInput.trim() || loading
+                        ? 'rgba(255,255,255,0.2)'
+                        : 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      cursor: !messageInput.trim() || loading ? 'not-allowed' : 'pointer',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      transition: 'transform 0.2s ease',
+                    }}
+                    onMouseOver={(e) => {
+                      if (!e.target.disabled) e.target.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseOut={(e) => {
+                      if (!e.target.disabled) e.target.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    {loading ? 'Sending...' : 'Send Broadcast'}
+                  </button>
+                </>
+              )}
+            </div>
+            </>
+          );
+        case 'Messages':
+          return (
+            <>
+              <div className="content-section">
+              <h2 style={{ color: '#fff', marginBottom: '2rem', fontSize: '2rem' }}>
+                Messages
+              </h2>
+              <div
+                style={{
+                  background: 'rgba(0,0,0,0.3)',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  border: '1px solid #4a5568',
+                  animation: 'fadeIn 0.3s ease-in-out',
+                }}
+              >
+                {loading ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#fff' }}>
+                    Loading messages...
+                  </div>
+                ) : messages.length > 0 ? (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(0,0,0,0.4)' }}>
+                        <th style={{
+                          padding: '1rem',
+                          textAlign: 'left',
+                          color: '#e2e8f0',
+                          fontWeight: '600',
+                          fontSize: '0.875rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Message
+                        </th>
+                        <th style={{
+                          padding: '1rem',
+                          textAlign: 'left',
+                          color: '#e2e8f0',
+                          fontWeight: '600',
+                          fontSize: '0.875rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Sent By
+                        </th>
+                        <th style={{
+                          padding: '1rem',
+                          textAlign: 'left',
+                          color: '#e2e8f0',
+                          fontWeight: '600',
+                          fontSize: '0.875rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Date
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {messages.map((msg, index) => (
+                        <tr
+                          key={msg.id || index}
+                          style={{
+                            borderTop: index > 0 ? '1px solid rgba(74, 85, 104, 0.5)' : 'none',
+                            backgroundColor: index % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'
+                          }}
+                        >
+                          <td style={{ padding: '1rem', color: '#e2e8f0', fontSize: '0.875rem' }}>
+                            <div style={{ maxWidth: '500px', wordWrap: 'break-word' }}>
+                              {msg.content || 'No content'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '1rem', color: '#e2e8f0', fontSize: '0.875rem' }}>
+                            {msg.senderUsername || 'Unknown'}
+                          </td>
+                          <td style={{ padding: '1rem', color: '#a0aec0', fontSize: '0.875rem' }}>
+                            {formatTimestamp(msg.timestamp)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#a0aec0' }}>
+                    No messages found
+                  </div>
+                )}
               </div>
-            <button
-                      onClick={handleMessageUpload}
-                      disabled={message.trim() === ''}
-                      style={{
-                        background: message.trim() === ''
-                          ? 'rgba(255,255,255,0.2)'
-                          : 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
-                        color: 'white',
-                        border: 'none',
-                        padding: '12px 24px',
-                        borderRadius: '8px',
-                        cursor: !message.trim() === '' ? 'not-allowed' : 'pointer',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        transition: 'transform 0.2s ease',
-                      }}
-                      onMouseOver={(e) => {
-                        if (!e.target.disabled) e.target.style.transform = 'translateY(-2px)';
-                      }}
-                      onMouseOut={(e) => {
-                        if (!e.target.disabled) e.target.style.transform = 'translateY(0)';
-                      }}
-                    >Send Broadcast
-                    </button>
+            </div>
             </>
           );
         }
@@ -1859,7 +2028,7 @@
                 onClick={() => setActiveSection('reports')}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M16,6L18.29,8.29L13.41,13.17L9.41,9.17L2,16.59L3.41,18L9.41,12L13.41,16L19.71,9.71L22,12V6H16Z"/>
+                  <path d="M16,6L18.29,8.29L13.41,13.17L9.41,9.17L2,16.59L3.41,18L9.41,12L13.41,16L19.71,9.71L22,12V6H16Z "/>
                 </svg>
                 View Reports
               </div>
@@ -1869,6 +2038,14 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M12,4C16.42,4 20,7.58 20,12C20,16.42 16.42,20 12,20C7.58,20 4,16.42 4,12C4,7.58 7.58,4 12,4M12,6C9.79,6 8,7.79 8,10C8,12.21 9.79,14 12,14C14.21,14 16,12.21 16,10C"/></svg>
                 Broadcasting
+              </div>
+              <div className={`nav-item ${activeSection === 'Messages' ? 'active' : ''}`}
+                   onClick={() => setActiveSection('Messages')}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 4h16v2H4zm0 6h16v2H4zm0 6h10v2H4z" />
+                </svg>
+                Messages
               </div>
             </nav>
             <div className="sidebar-footer">

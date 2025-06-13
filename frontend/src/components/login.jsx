@@ -158,7 +158,7 @@ const LoginPage = () => {
                 placeholder=" "
                 autoComplete="username"
               />
-              <label htmlFor="emailOrUsername" className="form-label">Email or Username</label>
+              <label htmlFor="emailOrUsername" className="form-label">Email Id</label>
             </div>
           </div>
 
