@@ -116,24 +116,14 @@ const SignupPage = () => {
         padding: "20px",
       }}
     >
-      <div className="logo-icon">
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-          <defs>
-            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#457b9d" />
-              <stop offset="100%" stopColor="#1d3557" />
-            </linearGradient>
-          </defs>
-          <circle cx="24" cy="24" r="20" fill="url(#gradient)" />
-        </svg>
+      <div className="logo-icon" style={{ marginBottom: "8px" }}>
+        <span style={{ fontSize: "2rem", fontWeight: 800, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>📚 ReportHub</span>
       </div>
 
       <div className="login-section">
         <div className="login-header">
-          <h2 className="login-title">Create Account</h2>
-          <p className="login-subtitle">
-            Please fill in your details to sign up
-          </p>
+          <h2 className="login-title">Join ReportHub</h2>
+          <p className="login-subtitle">Create your account to start managing project reports</p>
         </div>
 
         <ErrorAlert message={error} />

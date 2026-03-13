@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Titan from "../assets/titan-logo.png";
 import "../styles/auth.css";
 import { loginUser } from "../services/api";
 import { useAuthContext } from "../context/AuthContext";
@@ -88,13 +87,13 @@ const LoginPage = () => {
   return (
     <div className="login-container">
       <div className="company-logo">
-        <img src={Titan} alt="Titan" className="titan-logo-img" />
+        <span style={{ fontSize: "2rem", fontWeight: 800, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>📚 ReportHub</span>
       </div>
 
       <div className="login-section">
         <div className="login-header">
-          <h2 className="login-title">Welcome!!!</h2>
-          <p className="login-subtitle">Please sign in to your account</p>
+          <h2 className="login-title">Welcome to ReportHub</h2>
+          <p className="login-subtitle">Sign in to manage your project reports</p>
         </div>
 
         <ErrorAlert message={error} />
