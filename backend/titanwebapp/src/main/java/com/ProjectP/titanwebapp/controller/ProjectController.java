@@ -79,16 +79,16 @@ public class ProjectController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProject(@PathVariable Long id,
                                                @RequestParam String currentUser) {
-        return projectRepo.findById(id).map(p -> {
+        return projectRepo.findById(id).<ResponseEntity<Void>>map(p -> {
             if (!p.getOwnerUsername().equals(currentUser)) {
-                return ResponseEntity.<Void>status(HttpStatus.FORBIDDEN).build();
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).<Void>build();
             }
             versionRepo.findByProjectIdOrderByUploadedAtDesc(id).forEach(versionRepo::delete);
             collaboratorRepo.findByProjectId(id).forEach(collaboratorRepo::delete);
             announcementRepo.findByProjectIdOrderByCreatedAtDesc(id).forEach(announcementRepo::delete);
             projectRepo.delete(p);
-            return ResponseEntity.<Void>ok().build();
-        }).orElse(ResponseEntity.notFound().build());
+            return ResponseEntity.ok().<Void>build();
+        }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/{id}/star")
