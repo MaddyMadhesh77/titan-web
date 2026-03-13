@@ -40,6 +40,12 @@ const NAV_ITEMS = [
   },
 ];
 
+// ReportHub shortcut nav items (navigate-based, not section-based)
+const REPORTHUB_NAV = [
+  { key: "explore", label: "🔍 Explore Projects", path: "/explore" },
+  { key: "new",     label: "➕ New Project",      path: "/projects/new" },
+];
+
 export default function DashboardLayout({
   activeSection,
   onSectionChange,
@@ -64,7 +70,7 @@ export default function DashboardLayout({
       <header className="dashboard-header">
         <div className="header-left">
           <div className="logo-section">
-            <h2 style={{ color: "#FFF" }}>Titan Dashboard</h2>
+            <h2 style={{ color: "#FFF", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>📚 ReportHub</h2>
           </div>
         </div>
 
@@ -136,6 +142,21 @@ export default function DashboardLayout({
               </div>
             ))}
           </nav>
+
+          {/* ReportHub shortcuts */}
+          <div style={{ padding: "12px 8px", borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: "8px" }}>
+            <p style={{ fontSize: "0.68rem", color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 8px", marginBottom: "6px" }}>ReportHub</p>
+            {REPORTHUB_NAV.map(({ key, label, path }) => (
+              <div
+                key={key}
+                className="nav-item"
+                onClick={() => navigate(path)}
+                style={{ fontSize: "0.82rem" }}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
 
           <div className="sidebar-footer">
             <div className="user-info">
